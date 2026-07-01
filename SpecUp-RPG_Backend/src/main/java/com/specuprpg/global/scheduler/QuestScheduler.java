@@ -1,5 +1,6 @@
 package com.specuprpg.global.scheduler;
 
+import com.specuprpg.domain.feedback.service.FeedbackService;
 import com.specuprpg.domain.quest.entity.Quest;
 import com.specuprpg.domain.quest.entity.UserQuest;
 import com.specuprpg.domain.quest.repository.QuestRepository;
@@ -25,6 +26,8 @@ public class QuestScheduler {
     private final UserRepository userRepository;
     private final QuestRepository questRepository;
     private final UserQuestRepository userQuestRepository;
+    private final FeedbackService feedbackService;
+
 
     // ── 매일 자정: 퀘스트 초기화 & 일일 퀘스트 할당 ──────
     // cron = "0 0 0 * * *" → 매일 00시 00분 00초에 실행
@@ -81,9 +84,16 @@ public class QuestScheduler {
     // AI 도메인 개발 후 활성화 예정
     // 지금은 로그만 찍어요
     @Scheduled(cron = "0 0 22 * * *")
+    @Transactional
     public void generateDailyFeedback() {
-        log.info("[Scheduler] AI 일일 피드백 생성 시작 (AI 도메인 연동 후 활성화 예정)");
-        // TODO: AI 도메인 연동 후 구현
+        log.info("[Scheduler] AI 일일 피드백 생성 시작");
+
+        List<User> allUsers = userRepository.findAll();
+        for (User user : allUsers) {
+            feedbackService.generateDailyFeedback(user.getId());
+        }
+
+        log.info("[Scheduler] AI 일일 피드백 생성 완료: {}명", allUsers.size());
     }
 
     // ── 1분마다: AI 토큰 자동 충전 ───────────────────────

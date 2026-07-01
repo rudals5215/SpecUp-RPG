@@ -1,5 +1,6 @@
 package com.specuprpg.domain.quest.service;
 
+import com.specuprpg.domain.achievement.service.AchievementService;
 import com.specuprpg.domain.quest.dto.QuestRequestDto;
 import com.specuprpg.domain.quest.dto.QuestResponseDto;
 import com.specuprpg.domain.quest.entity.Quest;
@@ -34,6 +35,10 @@ public class QuestService {
     private final QuestCompletionRepository questCompletionRepository;
     private final UserRepository userRepository;
     private final UserStatusRepository userStatusRepository;
+    private final AchievementService achievementService;
+
+    // 수정 — 실제 칭호 체크
+    List<String> newAchievements = new ArrayList<>();
 
     // ── 오늘의 퀘스트 목록 조회 ──────────────────────────
     @Transactional(readOnly = true)
@@ -158,6 +163,22 @@ public class QuestService {
         log.info("[퀘스트 완료] userId={}, questId={}, xp={}, gold={}, levelUp={}",
                 userId, userQuestId, xpGained, goldGained, isLevelUp);
 
+        // 퀘스트 완료 횟수 체크
+        int completionCount = questCompletionRepository
+                .countByUserIdAndCompletedDate(userId, LocalDate.now());
+        newAchievements.addAll(achievementService
+                .checkAndGrantAchievements(userId, "QUEST_COUNT", completionCount));
+
+        // 스트릭 체크
+        newAchievements.addAll(achievementService
+                .checkAndGrantAchievements(userId, "STREAK_DAYS", status.getStreakDays()));
+
+        // 레벨업 시 레벨 체크
+        if (isLevelUp) {
+            newAchievements.addAll(achievementService
+                    .checkAndGrantAchievements(userId, "LEVEL", status.getLevel()));
+        }
+
         // ⑦ 결과 반환
         // 새 칭호 획득 여부는 칭호 도메인 개발 후 연동 예정
         return QuestResponseDto.CompleteResult.builder()
@@ -174,6 +195,8 @@ public class QuestService {
                         .build())
                 .newAchievements(new ArrayList<>()) // 칭호 도메인 연동 후 채울 예정
                 .build();
+
+
     }
 
     // ── 퀘스트 삭제 (커스텀 퀘스트만 가능) ───────────────
@@ -195,6 +218,8 @@ public class QuestService {
         userQuestRepository.delete(userQuest);
         log.info("[퀘스트 삭제] userId={}, userQuestId={}", userId, userQuestId);
     }
+
+
 
     // ── 공통 유틸 ─────────────────────────────────────────
     private User getUserById(Long userId) {

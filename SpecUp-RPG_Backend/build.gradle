@@ -41,6 +41,13 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+//	JSON을 다루는 라이브러리 의존성 추가
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+	implementation 'org.apache.httpcomponents.client5:httpclient5'
+
+
 }
 
 tasks.named('test') {

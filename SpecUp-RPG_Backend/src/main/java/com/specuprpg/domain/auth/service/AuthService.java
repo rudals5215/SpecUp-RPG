@@ -1,7 +1,11 @@
 package com.specuprpg.domain.auth.service;
 
+import com.specuprpg.domain.alarm.entity.AlarmSetting;
+import com.specuprpg.domain.alarm.repository.AlarmSettingRepository;
 import com.specuprpg.domain.auth.dto.AuthRequestDto;
 import com.specuprpg.domain.auth.dto.AuthResponseDto;
+import com.specuprpg.domain.pet.entity.Pet;
+import com.specuprpg.domain.pet.repository.PetRepository;
 import com.specuprpg.domain.user.entity.User;
 import com.specuprpg.domain.user.entity.UserStatus;
 import com.specuprpg.domain.user.repository.UserRepository;
@@ -24,6 +28,9 @@ public class AuthService {
     private final UserStatusRepository userStatusRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final PetRepository petRepository;
+    private final AlarmSettingRepository alarmSettingRepository;
+
 
     // ── 회원가입 ──────────────────────────────────────────
     @Transactional
@@ -50,6 +57,13 @@ public class AuthService {
         userStatusRepository.save(userStatus);
 
         log.info("[회원가입] email={}, nickname={}", user.getEmail(), user.getNickname());
+
+        // 5. 펫 자동 생성 (알 상태로 시작)
+        Pet pet = Pet.createDefault(user);
+        petRepository.save(pet);
+
+        AlarmSetting alarmSetting = AlarmSetting.createDefault(user);
+        alarmSettingRepository.save(alarmSetting);
 
         return AuthResponseDto.Register.from(user);
     }
