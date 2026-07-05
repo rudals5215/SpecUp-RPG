@@ -3,6 +3,8 @@ package com.specuprpg.domain.user.dto;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 public class DashboardResponseDto {
 
     @Getter
@@ -32,6 +34,18 @@ public class DashboardResponseDto {
             private int totalCount;
             private int completedCount;
             private int achievementRate;
+            // 퀘스트 목록 추가
+            private List<QuestItem> quests;
+
+            @Getter
+            @Builder
+            public static class QuestItem {
+                private Long userQuestId;
+                private String title;
+                private String status;
+                private int rewardXp;
+                private int rewardGold;
+            }
         }
 
         @Getter

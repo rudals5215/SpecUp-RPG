@@ -21,6 +21,14 @@ export interface DashboardData {
     totalCount: number;
     completedCount: number;
     achievementRate: number;
+    quests: {
+      // 추가
+      userQuestId: number;
+      title: string;
+      status: string;
+      rewardXp: number;
+      rewardGold: number;
+    }[];
   };
   pet: {
     name: string;

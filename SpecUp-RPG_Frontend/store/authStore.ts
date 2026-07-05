@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 // 백엔드 로그인 응답의 user 객체와 동일한 형태로 맞춰요
 export interface User {
@@ -23,20 +23,14 @@ interface AuthState {
   updateUser: (user: Partial<User>) => void;
 }
 
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       accessToken: null,
       user: null,
-
-      login: (token, user) => {
-        set({ accessToken: token, user });
-      },
-
-      logout: () => {
-        set({ accessToken: null, user: null });
-      },
-
+      login: (token, user) => set({ accessToken: token, user }),
+      logout: () => set({ accessToken: null, user: null }),
       updateUser: (updatedFields) => {
         const currentUser = get().user;
         if (!currentUser) return;
@@ -44,7 +38,10 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "specuprpg-auth", // localStorage에 저장될 때 사용할 키 이름
-    }
-  )
+      name: "specuprpg-auth",
+      storage: createJSONStorage(() => localStorage),
+      // SSR 환경에서 hydration 직접 제어
+      skipHydration: true,
+    },
+  ),
 );
