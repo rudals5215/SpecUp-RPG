@@ -4,12 +4,15 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { getDashboard, DashboardData } from "@/lib/api/dashboard";
+import { completeQuest } from "@/lib/api/quest";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, accessToken } = useAuthStore();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [completingId, setCompletingId] = useState<number | null>(null);
+  const [completeMessage, setCompleteMessage] = useState("");
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -31,6 +34,28 @@ export default function DashboardPage() {
     fetchDashboard();
   }, [accessToken, fetchDashboard, router]);
 
+  // 대시보드에서 바로 퀘스트 완료 처리
+  async function handleCompleteQuest(userQuestId: number) {
+    setCompletingId(userQuestId);
+    setCompleteMessage("");
+    try {
+      const res = await completeQuest(userQuestId);
+      if (res.success) {
+        const { xpGained, goldGained, userStatus } = res.data;
+        const levelUpMsg = userStatus.isLevelUp
+          ? ` 🎊 레벨업! Lv.${userStatus.previousLevel} → Lv.${userStatus.level}`
+          : "";
+        setCompleteMessage(`+${xpGained} XP, +${goldGained} G${levelUpMsg}`);
+        // 완료 후 대시보드 데이터 새로고침
+        await fetchDashboard();
+      }
+    } catch (err: any) {
+      setCompleteMessage(err?.response?.data?.message ?? "완료 처리 중 문제가 생겼어요.");
+    } finally {
+      setCompletingId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -41,13 +66,7 @@ export default function DashboardPage() {
 
   if (!dashboard) return null;
 
-  const {
-    user: charInfo,
-    todayQuests,
-    pet,
-    activeAiToken,
-    aiTokenMax,
-  } = dashboard;
+  const { user: charInfo, todayQuests, pet, activeAiToken, aiTokenMax } = dashboard;
 
   return (
     <div className="min-h-screen bg-base p-4 md:p-6">
@@ -60,27 +79,19 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="font-bold text-ink">{charInfo.nickname}</p>
-              <p className="font-mono text-xs text-ink-muted">
-                {user?.role ?? "DEVELOPER"}
-              </p>
+              <p className="font-mono text-xs text-ink-muted">{user?.role ?? "DEVELOPER"}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="font-mono text-sm text-gold">
-              🪙 {charInfo.gold.toLocaleString()} G
-            </div>
-            <div className="font-mono text-sm text-ink-muted">
-              AI {activeAiToken}/{aiTokenMax}
-            </div>
+            <div className="font-mono text-sm text-gold">🪙 {charInfo.gold.toLocaleString()} G</div>
+            <div className="font-mono text-sm text-ink-muted">AI {activeAiToken}/{aiTokenMax}</div>
           </div>
         </div>
 
         {/* XP 바 */}
         <div className="mt-3">
           <div className="mb-1 flex justify-between font-mono text-xs text-ink-muted">
-            <span>
-              EXP {charInfo.experiencePoints} / {charInfo.nextLevelXp} XP
-            </span>
+            <span>EXP {charInfo.experiencePoints} / {charInfo.nextLevelXp} XP</span>
             <span>{charInfo.progressPercent}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-border">
@@ -98,26 +109,25 @@ export default function DashboardPage() {
         )}
       </header>
 
+      {/* 완료 메시지 */}
+      {completeMessage && (
+        <div className="mb-4 rounded-card bg-success/10 px-4 py-3 font-mono text-sm text-success">
+          🎉 {completeMessage}
+        </div>
+      )}
+
       {/* 메인 그리드 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {/* 왼쪽: 펫 */}
         <div className="rounded-card border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold text-ink-muted">
-            My Partner Pet
-          </h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink-muted">My Partner Pet</h2>
           {pet ? (
             <div
               className="flex flex-col items-center gap-2 py-4 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => router.push("/pet")}
             >
               <div className="text-5xl">
-                {pet.status === "EGG"
-                  ? "🥚"
-                  : pet.status === "BABY"
-                    ? "🐣"
-                    : pet.status === "ADULT"
-                      ? "🐱"
-                      : "⭐"}
+                {pet.status === "EGG" ? "🥚" : pet.status === "BABY" ? "🐣" : pet.status === "ADULT" ? "🐱" : "⭐"}
               </div>
               <p className="font-bold text-ink">{pet.name}</p>
               <p className="font-mono text-xs text-ink-muted">Lv.{pet.level}</p>
@@ -135,18 +145,14 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : (
-            <p className="py-8 text-center font-mono text-sm text-ink-faint">
-              펫이 없어요
-            </p>
+            <p className="py-8 text-center font-mono text-sm text-ink-faint">펫이 없어요</p>
           )}
         </div>
 
         {/* 가운데: 오늘의 퀘스트 */}
         <div className="rounded-card border border-border bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink-muted">
-              오늘의 일일 퀘스트
-            </h2>
+            <h2 className="text-sm font-semibold text-ink-muted">오늘의 일일 퀘스트</h2>
             <span className="font-mono text-xs text-ink-muted">
               {todayQuests.completedCount}/{todayQuests.totalCount}
             </span>
@@ -162,9 +168,7 @@ export default function DashboardPage() {
 
           {todayQuests.totalCount === 0 ? (
             <div className="py-6 text-center">
-              <p className="font-mono text-sm text-ink-faint">
-                오늘의 퀘스트가 없어요
-              </p>
+              <p className="font-mono text-sm text-ink-faint">오늘의 퀘스트가 없어요</p>
               <button
                 onClick={() => router.push("/quests")}
                 className="mt-3 font-mono text-xs text-primary hover:underline"
@@ -174,33 +178,35 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {/* 퀘스트 목록 */}
-              {todayQuests.quests?.map((quest) => (
-                <div
-                  key={quest.userQuestId}
-                  className={`flex items-center gap-2 rounded-card border px-3 py-2 ${
-                    quest.status === "COMPLETED"
-                      ? "border-success/20 opacity-50"
-                      : "border-border"
-                  }`}
-                >
-                  <span className="text-sm">
-                    {quest.status === "COMPLETED" ? "✅" : "⬜"}
-                  </span>
-                  <span
-                    className={`flex-1 text-sm ${
-                      quest.status === "COMPLETED"
-                        ? "line-through text-ink-muted"
-                        : "text-ink"
+              {todayQuests.quests?.map((quest) => {
+                const isCompleted = quest.status === "COMPLETED";
+                const isCompleting = completingId === quest.userQuestId;
+                return (
+                  <button
+                    key={quest.userQuestId}
+                    onClick={() => !isCompleted && !isCompleting && handleCompleteQuest(quest.userQuestId)}
+                    disabled={isCompleted || isCompleting}
+                    className={`flex items-center gap-2 rounded-card border px-3 py-2 text-left w-full transition-colors ${
+                      isCompleted
+                        ? "border-success/20 opacity-50 cursor-default"
+                        : isCompleting
+                        ? "border-primary/50 opacity-70 cursor-wait"
+                        : "border-border hover:border-primary/50 hover:bg-surface-hover cursor-pointer"
                     }`}
                   >
-                    {quest.title}
-                  </span>
-                  <span className="font-mono text-xs text-gold">
-                    +{quest.rewardXp} XP
-                  </span>
-                </div>
-              ))}
+                    {/* 체크박스 */}
+                    <span className="text-sm shrink-0">
+                      {isCompleting ? "⏳" : isCompleted ? "✅" : "⬜"}
+                    </span>
+                    <span className={`flex-1 text-sm ${isCompleted ? "line-through text-ink-muted" : "text-ink"}`}>
+                      {quest.title}
+                    </span>
+                    <span className="font-mono text-xs text-gold shrink-0">
+                      +{quest.rewardXp} XP
+                    </span>
+                  </button>
+                );
+              })}
 
               <button
                 onClick={() => router.push("/quests")}
@@ -221,6 +227,8 @@ export default function DashboardPage() {
             { label: "✨ AI 레벨 진단", href: "/ai-diagnosis" },
             { label: "📊 주간 통계", href: "/stats" },
             { label: "🐾 내 펫", href: "/pet" },
+            { label: "👤 내 프로필", href: "/profile" },
+            { label: "🔔 알람 설정", href: "/alarms" },
           ].map((item) => (
             <button
               key={item.href}
